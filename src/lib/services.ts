@@ -48,25 +48,33 @@ export const createGame = async (questions: any[]) => {
             throw new Error("Supabase insert error: " + (roomError.message || JSON.stringify(roomError)));
         }
 
-        const dummyQuestions = [
-            {
+        // Use provided questions or fallback to dummy
+        let finalQuestions = [];
+
+        if (questions && questions.length > 0) {
+            finalQuestions = questions.map((q, idx) => ({
                 room_id: room.id,
-                text: 'ข้อใดเป็น Outcome (ผลลัพธ์)?',
-                options: JSON.stringify(['A. จำนวนผู้เข้าร่วม', 'B. รายงานที่จัดทำ', 'C. ผู้เข้าร่วมมีความรู้เพิ่มขึ้น', 'D. จำนวนเอกสาร']),
-                correct_answer: 'C',
-                time_limit: 10,
-                sort_order: 0
-            },
-            {
-                room_id: room.id,
-                text: 'ข้อใดคือตัวชี้วัดความสำเร็จหลัก (KPI)?',
-                options: JSON.stringify(['A. Key Performance Indicator', 'B. Key Process Idea', 'C. Keep People Informed', 'D. Knowledge Process Integration']),
-                correct_answer: 'A',
-                time_limit: 10,
-                sort_order: 1
-            }
-        ];
-        await supabase.from('questions').insert(dummyQuestions);
+                text: q.text,
+                options: JSON.stringify(q.options),
+                correct_answer: q.correct_answer,
+                time_limit: q.time_limit || 15,
+                sort_order: idx
+            }));
+        } else {
+            // Fallback (just in case they skip the UI somehow)
+            finalQuestions = [
+                {
+                    room_id: room.id,
+                    text: 'ข้อใดเป็น Outcome (ผลลัพธ์)?',
+                    options: JSON.stringify(['A. จำนวนผู้เข้าร่วม', 'B. รายงานที่จัดทำ', 'C. ผู้เข้าร่วมมีความรู้เพิ่มขึ้น', 'D. จำนวนเอกสาร']),
+                    correct_answer: 'C',
+                    time_limit: 10,
+                    sort_order: 0
+                }
+            ];
+        }
+
+        await supabase.from('questions').insert(finalQuestions);
         return room;
     } catch (e: any) {
         throw new Error("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + e.message);
