@@ -15,7 +15,7 @@ export default function HostDashboard() {
             const room = await createGame([]); // create with dummy questions for Demo
             router.push(`/host/${room.code}`);
         } catch (err: any) {
-            alert("Error: " + err.message);
+            alert(`[DEBUG URL] => "${process.env.NEXT_PUBLIC_SUPABASE_URL}"\n\nError: ${err.message}`);
             setLoading(false);
         }
     };
