@@ -1,0 +1,5 @@
+API Key
+sb_publishable_4CdXmCet-0DW-Uz89U-xxQ_doNu61id
+
+API URL
+https://byyixdbrywaibdcmcpaw.supabase.co/rest/v1/

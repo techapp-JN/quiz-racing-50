@@ -11,7 +11,15 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        primary: "#ff4d4f",
+        secondary: "#1890ff",
+        accent: "#faad14",
+        success: "#52c41a",
       },
+      animation: {
+        'bounce-slow': 'bounce 3s infinite',
+        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      }
     },
   },
   plugins: [],
