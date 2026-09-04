@@ -1,21 +1,87 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { PlusCircle, Settings, Play, ArrowLeft, Trash2, Import } from "lucide-react";
+import { PlusCircle, Settings, Play, ArrowLeft, Trash2, Import, Download } from "lucide-react";
 import { createGame } from "@/lib/services";
 
 export default function HostDashboard() {
     const [loading, setLoading] = useState(false);
     const [view, setView] = useState<'menu' | 'setup'>('menu');
     const router = useRouter();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [questions, setQuestions] = useState([
         { text: "", options: ["", "", "", ""], correct_answer: "A", time_limit: 15 }
     ]);
 
+    const parseCSVLine = (text: string) => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            if (char === '"' && text[i + 1] === '"') { current += '"'; i++; }
+            else if (char === '"') { inQuotes = !inQuotes; }
+            else if (char === ',' && !inQuotes) { result.push(current); current = ''; }
+            else { current += char; }
+        }
+        result.push(current);
+        return result;
+    }
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target?.result as string;
+            // แยกบรรทัดและรองรับทั้ง \r\n และ \n
+            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+            if (lines.length < 2) return alert("ไม่พบข้อมูล หรือมีแค่หัวตาราง");
+
+            const newQuestions = [];
+            for (let i = 1; i < lines.length; i++) { // ข้าม headers (บรรทัด 0)
+                const row = parseCSVLine(lines[i]);
+                if (row.length >= 6) {
+                    let ans = row[5].trim().toUpperCase();
+                    if (!['A', 'B', 'C', 'D'].includes(ans)) ans = 'A';
+
+                    newQuestions.push({
+                        text: row[0] || "",
+                        options: [row[1] || "", row[2] || "", row[3] || "", row[4] || ""],
+                        correct_answer: ans,
+                        time_limit: parseInt(row[6]) || 15
+                    });
+                }
+            }
+            if (newQuestions.length > 0) {
+                setQuestions(newQuestions);
+                setView('setup');
+                if (fileInputRef.current) fileInputRef.current.value = ''; // เคลียร์ไฟล์
+            } else {
+                alert("ไม่สามารถอ่านข้อมูลได้ กรุณาตรวจสอบรูปแบบไฟล์ CSV ให้ตรงตามเทมเพลต");
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const downloadTemplate = () => {
+        const headers = "คำถาม,ตัวเลือก A,ตัวเลือก B,ตัวเลือก C,ตัวเลือก D,คำตอบที่ถูก (A/B/C/D),เวลา (วินาที)\n";
+        const sampleRow1 = "สีใดคือแม่สี?,แดง,เขียว,ส้ม,ม่วง,A,15\n";
+        const sampleRow2 = "ข้อใดคือ Outcome?,รายงานวิจัย,จำนวนผู้เข้าชม,รายได้ที่เพิ่มขึ้น,แผนการตลาด,C,20\n";
+
+        const blob = new Blob(["\ufeff" + headers + sampleRow1 + sampleRow2], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "quiz-template.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const handleCreateGame = async () => {
-        // ตรวจสอบความถูกต้องก่อนสร้างเกม
         for (let i = 0; i < questions.length; i++) {
             if (!questions[i].text.trim()) return alert(`กรุณากรอกคำถามข้อที่ ${i + 1}`);
             for (let j = 0; j < 4; j++) {
@@ -25,7 +91,6 @@ export default function HostDashboard() {
 
         setLoading(true);
         try {
-            // จัดรูปแบบให้ตัวเลือกมี A. B. C. D. นำหน้า
             const formattedQuestions = questions.map((q) => ({
                 text: q.text,
                 options: [
@@ -41,14 +106,12 @@ export default function HostDashboard() {
             const room = await createGame(formattedQuestions);
             router.push(`/host/${room.code}`);
         } catch (err: any) {
-            alert(`[DEBUG URL] => "${process.env.NEXT_PUBLIC_SUPABASE_URL}"\n\nError: ${err.message}`);
+            alert(`Error: ${err.message}`);
             setLoading(false);
         }
     };
 
-    const addQuestion = () => {
-        setQuestions([...questions, { text: "", options: ["", "", "", ""], correct_answer: "A", time_limit: 15 }]);
-    };
+    const addQuestion = () => setQuestions([...questions, { text: "", options: ["", "", "", ""], correct_answer: "A", time_limit: 15 }]);
 
     const removeQuestion = (index: number) => {
         if (questions.length <= 1) return alert("ต้องมีคำถามอย่างน้อย 1 ข้อครับ");
@@ -63,7 +126,7 @@ export default function HostDashboard() {
                         <button onClick={() => setView('menu')} className="flex items-center gap-2 text-slate-400 hover:text-white transition">
                             <ArrowLeft size={20} /> กลับ
                         </button>
-                        <h2 className="text-2xl font-bold italic">สร้างชุดคำถามใหม่</h2>
+                        <h2 className="text-2xl font-bold italic">ตรวจทานคำถาม ({questions.length} ข้อ)</h2>
                         <button
                             onClick={handleCreateGame}
                             disabled={loading}
@@ -94,7 +157,6 @@ export default function HostDashboard() {
                                             newQ[qIndex].text = e.target.value;
                                             setQuestions(newQ);
                                         }}
-                                        placeholder="เช่น ข้อใดเป็นผลลัพธ์ (Outcome) ?"
                                         className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white focus:border-primary outline-none"
                                     />
                                 </div>
@@ -111,7 +173,6 @@ export default function HostDashboard() {
                                                     newQ[qIndex].options[optIndex] = e.target.value;
                                                     setQuestions(newQ);
                                                 }}
-                                                placeholder={`ตัวเลือก ${letter}`}
                                                 className="w-full bg-slate-800/50 border border-slate-700 rounded-lg p-3 text-white focus:border-primary outline-none"
                                             />
                                         </div>
@@ -137,7 +198,7 @@ export default function HostDashboard() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm text-slate-400 mb-1">เวลาในการตอบ (วินาที)</label>
+                                        <label className="block text-sm text-slate-400 mb-1">เวลา (วินาที)</label>
                                         <input
                                             type="number"
                                             value={q.time_limit}
@@ -158,8 +219,7 @@ export default function HostDashboard() {
                         onClick={addQuestion}
                         className="w-full py-4 border-2 border-dashed border-slate-600 rounded-2xl text-slate-400 hover:text-white hover:border-slate-400 hover:bg-slate-800/50 transition flex items-center justify-center gap-2"
                     >
-                        <PlusCircle size={24} />
-                        เพิ่มคำถามข้อที่ {questions.length + 1}
+                        <PlusCircle size={24} /> เพิ่มคำถามข้อที่ {questions.length + 1}
                     </button>
                 </div>
             </div>
@@ -168,6 +228,14 @@ export default function HostDashboard() {
 
     return (
         <div className="min-h-screen p-8 bg-slate-900 text-slate-100 flex flex-col justify-center">
+            <input
+                type="file"
+                accept=".csv"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                className="hidden"
+            />
+
             <div className="max-w-4xl mx-auto space-y-8 w-full">
                 <header className="flex items-center justify-between">
                     <div>
@@ -176,12 +244,8 @@ export default function HostDashboard() {
                         </h1>
                         <p className="text-slate-400 mt-2">Host Dashboard</p>
                     </div>
-                    <button
-                        onClick={() => router.push('/')}
-                        className="flex items-center gap-2 text-slate-400 hover:text-white transition"
-                    >
-                        <ArrowLeft size={20} />
-                        กลับหน้าแรก
+                    <button onClick={() => router.push('/')} className="flex items-center gap-2 text-slate-400 hover:text-white transition">
+                        <ArrowLeft size={20} /> กลับหน้าแรก
                     </button>
                 </header>
 
@@ -197,20 +261,28 @@ export default function HostDashboard() {
                         <p className="text-slate-400 text-sm text-center">พิมพ์โจทย์ ตัวเลือก และตั้งเวลาเองได้เลย</p>
                     </button>
 
-                    <button className="glass-panel p-8 flex flex-col items-center justify-center gap-4 border-slate-700 opacity-50 cursor-not-allowed hidden md:flex">
-                        <div className="bg-secondary/20 p-4 rounded-full">
+                    <div className="glass-panel p-8 flex flex-col items-center justify-center gap-4 hover:bg-slate-800/50 transition border border-secondary/30 group cursor-pointer"
+                        onClick={() => fileInputRef.current?.click()}
+                    >
+                        <div className="bg-secondary/20 p-4 rounded-full group-hover:scale-110 transition">
                             <Import size={48} className="text-secondary" />
                         </div>
                         <h2 className="text-xl font-bold">นำเข้า CSV</h2>
-                        <p className="text-slate-400 text-sm text-center">เร็วๆนี้ (Phase 2)</p>
-                    </button>
+                        <p className="text-slate-400 text-sm text-center mb-2">โหลดไฟล์คำถามหลายข้อพร้อมกัน</p>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); downloadTemplate(); }}
+                            className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-full flex items-center gap-1 border border-slate-600"
+                        >
+                            <Download size={14} /> โหลดไฟล์ต้นแบบ
+                        </button>
+                    </div>
 
                     <button className="glass-panel p-8 flex flex-col items-center justify-center gap-4 border-slate-700 opacity-50 cursor-not-allowed hidden lg:flex">
                         <div className="bg-accent/20 p-4 rounded-full">
                             <Settings size={48} className="text-accent" />
                         </div>
                         <h2 className="text-xl font-bold">ตั้งค่าพิเศษ</h2>
-                        <p className="text-slate-400 text-sm text-center">เร็วๆนี้ (Phase 2)</p>
+                        <p className="text-slate-400 text-sm text-center">เร็วๆนี้ (Phase 2.5)</p>
                     </button>
                 </div>
             </div>
