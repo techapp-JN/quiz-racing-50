@@ -31,34 +31,46 @@ export const createGame = async (questions: any[]) => {
     }
 
     const code = generateRoomCode();
-    const { data: room, error: roomError } = await supabase
-        .from('rooms')
-        .insert([{ code, status: 'WAITING' }])
-        .select()
-        .single();
 
-    if (roomError) throw roomError;
+    // Diagnostic check to ensure the URL is passed correctly
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_URL.startsWith('http')) {
+        throw new Error(`URL ต้องขึ้นต้นด้วย http(s). ค่าปัจจุบันของคุณคือ: "${process.env.NEXT_PUBLIC_SUPABASE_URL}"`);
+    }
 
-    const dummyQuestions = [
-        {
-            room_id: room.id,
-            text: 'ข้อใดเป็น Outcome (ผลลัพธ์)?',
-            options: JSON.stringify(['A. จำนวนผู้เข้าร่วม', 'B. รายงานที่จัดทำ', 'C. ผู้เข้าร่วมมีความรู้เพิ่มขึ้น', 'D. จำนวนเอกสาร']),
-            correct_answer: 'C',
-            time_limit: 10,
-            sort_order: 0
-        },
-        {
-            room_id: room.id,
-            text: 'ข้อใดคือตัวชี้วัดความสำเร็จหลัก (KPI)?',
-            options: JSON.stringify(['A. Key Performance Indicator', 'B. Key Process Idea', 'C. Keep People Informed', 'D. Knowledge Process Integration']),
-            correct_answer: 'A',
-            time_limit: 10,
-            sort_order: 1
+    try {
+        const { data: room, error: roomError } = await supabase
+            .from('rooms')
+            .insert([{ code, status: 'WAITING' }])
+            .select()
+            .single();
+
+        if (roomError) {
+            throw new Error("Supabase insert error: " + (roomError.message || JSON.stringify(roomError)));
         }
-    ];
-    await supabase.from('questions').insert(dummyQuestions);
-    return room;
+
+        const dummyQuestions = [
+            {
+                room_id: room.id,
+                text: 'ข้อใดเป็น Outcome (ผลลัพธ์)?',
+                options: JSON.stringify(['A. จำนวนผู้เข้าร่วม', 'B. รายงานที่จัดทำ', 'C. ผู้เข้าร่วมมีความรู้เพิ่มขึ้น', 'D. จำนวนเอกสาร']),
+                correct_answer: 'C',
+                time_limit: 10,
+                sort_order: 0
+            },
+            {
+                room_id: room.id,
+                text: 'ข้อใดคือตัวชี้วัดความสำเร็จหลัก (KPI)?',
+                options: JSON.stringify(['A. Key Performance Indicator', 'B. Key Process Idea', 'C. Keep People Informed', 'D. Knowledge Process Integration']),
+                correct_answer: 'A',
+                time_limit: 10,
+                sort_order: 1
+            }
+        ];
+        await supabase.from('questions').insert(dummyQuestions);
+        return room;
+    } catch (e: any) {
+        throw new Error("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + e.message);
+    }
 };
 
 export const joinGame = async (code: string, name: string, avatar: string, sessionId: string) => {
