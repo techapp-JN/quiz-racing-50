@@ -80,8 +80,16 @@ export default function PlayerJoin() {
                 }
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'players', filter: `id=eq.${playerId}` }, (payload) => {
-                setScore(payload.new.score);
-                setCombo(payload.new.combo);
+                if (payload.new.room_id === null) {
+                    setJoined(false);
+                    setPlayerId(null);
+                    setScore(0);
+                    setCombo(0);
+                    setError("เกมในรอบนี้ถูกล้างข้อมูล กรุณาเข้าร่วมใหม่เพื่อเล่นรอบต่อไป");
+                } else {
+                    setScore(payload.new.score);
+                    setCombo(payload.new.combo);
+                }
             })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'players', filter: `id=eq.${playerId}` }, () => {
                 setJoined(false);

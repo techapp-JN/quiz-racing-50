@@ -36,6 +36,13 @@ export default function HostRoom() {
             return;
         }
 
+        // Clear component state before fetching new data in case of client-side navigation
+        setPlayers([]);
+        setQuestions([]);
+        setAnswersCount(0);
+        setTimeLeft(0);
+        setShowResult(false);
+
         const fetchInitialData = async () => {
             const { data: room } = await supabase.from('rooms').select('*').eq('code', roomCode).single();
             if (room) {
@@ -126,14 +133,20 @@ export default function HostRoom() {
 
     const resetRound = async () => {
         if (!isSupabaseConfigured() || !confirm("ต้องการล้างข้อมูลผู้เล่นทั้งหมดและเริ่มรอบใหม่ในห้องเดิมหรือไม่?")) return;
-        const { data: room } = await supabase.from('rooms').select('id').eq('code', roomCode).single();
-        if (room) {
-            await supabase.from('answers').delete().eq('room_id', room.id);
-            await supabase.from('players').delete().eq('room_id', room.id);
-            await supabase.from('rooms').update({ status: 'WAITING', current_question_index: 0 }).eq('id', room.id);
-            setPlayers([]);
-            setStatus('WAITING');
-            setCurrentQuestionIndex(0);
+
+        try {
+            const { data: room } = await supabase.from('rooms').select('id').eq('code', roomCode).single();
+            if (room) {
+                // Using UPDATE to detach instead of DELETE to bypass missing DELETE policy
+                await supabase.from('answers').update({ room_id: null }).eq('room_id', room.id);
+                await supabase.from('players').update({ room_id: null }).eq('room_id', room.id);
+                await supabase.from('rooms').update({ status: 'WAITING', current_question_index: 0 }).eq('id', room.id);
+                setPlayers([]);
+                setStatus('WAITING');
+                setCurrentQuestionIndex(0);
+            }
+        } catch (error) {
+            console.error("Reset failed", error);
         }
     };
 
