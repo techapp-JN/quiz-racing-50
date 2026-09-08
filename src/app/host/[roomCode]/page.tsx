@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
-import { Users, Play, CheckCircle } from "lucide-react";
+import { Users, Play, CheckCircle, Trash2 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import confetti from "canvas-confetti";
 
@@ -124,6 +124,19 @@ export default function HostRoom() {
         }
     };
 
+    const resetRound = async () => {
+        if (!isSupabaseConfigured() || !confirm("ต้องการล้างข้อมูลผู้เล่นทั้งหมดและเริ่มรอบใหม่ในห้องเดิมหรือไม่?")) return;
+        const { data: room } = await supabase.from('rooms').select('id').eq('code', roomCode).single();
+        if (room) {
+            await supabase.from('answers').delete().eq('room_id', room.id);
+            await supabase.from('players').delete().eq('room_id', room.id);
+            await supabase.from('rooms').update({ status: 'WAITING', current_question_index: 0 }).eq('id', room.id);
+            setPlayers([]);
+            setStatus('WAITING');
+            setCurrentQuestionIndex(0);
+        }
+    };
+
     const currentQ = questions[currentQuestionIndex];
 
     // Sorted players for Leaderboard & Racing
@@ -160,7 +173,12 @@ export default function HostRoom() {
                             <h2 className="text-2xl font-bold flex items-center gap-2">
                                 ผู้เล่น <Users className="text-secondary" />
                             </h2>
-                            <span className="text-2xl font-bold text-secondary">{players.length}/50</span>
+                            <div className="flex gap-4 items-center">
+                                <button onClick={resetRound} className="text-slate-500 hover:text-red-400 transition" title="ล้างผู้เล่นทั้งหมด">
+                                    <Trash2 size={24} />
+                                </button>
+                                <span className="text-2xl font-bold text-secondary">{players.length} คน</span>
+                            </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-4 content-start">
@@ -294,22 +312,37 @@ export default function HostRoom() {
                 </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full max-w-4xl">
-                {sortedPlayers.slice(1, 5).map((p, i) => (
-                    <div key={p.id} className="bg-slate-800 p-6 rounded-xl flex flex-col items-center border border-slate-700 shadow-xl">
-                        <div className="text-4xl mb-2">{p.avatar}</div>
-                        <div className="text-lg font-bold text-slate-300">#{i + 2} {p.name}</div>
-                        <div className="text-secondary font-mono">{p.score} pts</div>
-                    </div>
-                ))}
+            <div className="w-full max-w-4xl mt-12 bg-slate-800 rounded-xl p-8 border border-slate-700 shadow-xl">
+                <h3 className="text-2xl font-bold text-slate-300 mb-6 text-left">รายชื่อผู้เล่นทั้งหมด</h3>
+                <div className="max-h-[300px] overflow-y-auto pr-4 custom-scrollbar">
+                    {sortedPlayers.map((p, i) => (
+                        <div key={p.id} className="flex justify-between items-center bg-slate-900/50 p-4 rounded-lg mb-3">
+                            <div className="flex items-center gap-4">
+                                <span className={`font-bold ${i < 3 ? 'text-xl text-primary' : 'text-slate-400'}`}>#{i + 1}</span>
+                                <span className="text-3xl">{p.avatar}</span>
+                                <span className="font-bold text-xl">{p.name}</span>
+                            </div>
+                            <span className="font-mono text-xl text-secondary">{p.score} pts</span>
+                        </div>
+                    ))}
+                </div>
             </div>
 
-            <button
-                onClick={() => router.push('/host/dashboard')}
-                className="mt-12 px-8 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold transition"
-            >
-                กลับไป Dashboard
-            </button>
+            <div className="mt-12 flex gap-4">
+                <button
+                    onClick={resetRound}
+                    className="flex items-center gap-2 px-8 py-3 bg-red-900/40 hover:bg-red-800/60 border border-red-500/50 focus:ring-2 focus:ring-red-500 rounded-lg text-red-200 font-bold transition"
+                >
+                    <Trash2 size={20} />
+                    ล้างข้อมูลเพื่อเริ่มรอบใหม่
+                </button>
+                <button
+                    onClick={() => router.push('/host/dashboard')}
+                    className="px-8 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold transition"
+                >
+                    กลับไป Dashboard
+                </button>
+            </div>
         </div>
     );
 }
