@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { PlusCircle, Settings, Play, ArrowLeft, Trash2, Import, Download } from "lucide-react";
+import { PlusCircle, Settings, Play, ArrowLeft, Trash2, Import, Download, ClipboardList } from "lucide-react";
 import { createGame } from "@/lib/services";
 
 export default function HostDashboard() {
@@ -277,12 +277,15 @@ export default function HostDashboard() {
                         </button>
                     </div>
 
-                    <button className="glass-panel p-8 flex flex-col items-center justify-center gap-4 border-slate-700 opacity-50 cursor-not-allowed hidden lg:flex">
-                        <div className="bg-accent/20 p-4 rounded-full">
-                            <Settings size={48} className="text-accent" />
+                    <button
+                        onClick={() => router.push('/host/reports')}
+                        className="glass-panel p-8 flex flex-col items-center justify-center gap-4 hover:bg-slate-800/50 transition border border-accent/30 group cursor-pointer"
+                    >
+                        <div className="bg-accent/20 p-4 rounded-full group-hover:scale-110 transition">
+                            <ClipboardList size={48} className="text-accent" />
                         </div>
-                        <h2 className="text-xl font-bold">ตั้งค่าพิเศษ</h2>
-                        <p className="text-slate-400 text-sm text-center">เร็วๆนี้ (Phase 2.5)</p>
+                        <h2 className="text-xl font-bold">รายงานผลย้อนหลัง</h2>
+                        <p className="text-slate-400 text-sm text-center">ดูสถิติและคะแนน 3 รอบล่าสุด</p>
                     </button>
                 </div>
             </div>
