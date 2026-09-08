@@ -132,7 +132,11 @@ export default function HostRoom() {
     };
 
     const resetRound = async () => {
-        if (!isSupabaseConfigured() || !confirm("ต้องการล้างข้อมูลผู้เล่นทั้งหมดและเริ่มรอบใหม่ในห้องเดิมหรือไม่?")) return;
+        if (!isSupabaseConfigured()) {
+            alert("ระบบจำลอง (Mock Mode) ไม่สามารถล้างข้อมูลได้ กรุณาตรวจสอบให้แน่ใจว่าบน Vercel ได้ตั้งค่า Environment Variables อย่างถูกต้อง (ขึ้นต้นด้วย NEXT_PUBLIC_)");
+            return;
+        }
+        if (!confirm("ต้องการล้างข้อมูลผู้เล่นทั้งหมดและเริ่มรอบใหม่ในห้องเดิมหรือไม่?")) return;
 
         try {
             const { data: room } = await supabase.from('rooms').select('id').eq('code', roomCode).single();

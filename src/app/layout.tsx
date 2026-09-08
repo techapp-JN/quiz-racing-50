@@ -26,9 +26,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased relative min-h-screen flex flex-col`}
       >
-        {children}
+        <div className="flex-1">
+          {children}
+        </div>
+        <div className="fixed bottom-1 right-2 text-[10px] text-slate-500/50 pointer-events-none z-50">
+          v1.0.2 (Update: Reset System Fix)
+        </div>
       </body>
     </html>
   );
