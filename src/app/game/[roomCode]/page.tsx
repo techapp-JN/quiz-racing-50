@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { Trophy, Zap, AlertCircle, CheckCircle } from "lucide-react";
+import { Zap, CheckCircle, XCircle } from "lucide-react";
 
 const AVATARS = ['🚗', '🏎️', '🚕', '🚙', '🚓', '🚌', '🚑', '🚀', '🛸', '🏍️', '🐼', '🦊'];
 
@@ -27,6 +27,15 @@ export default function PlayerJoin() {
     const [hasAnswered, setHasAnswered] = useState(false);
     const [score, setScore] = useState(0);
     const [combo, setCombo] = useState(0);
+    const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (status === 'PLAYING' && timeLeft !== null && timeLeft > 0) {
+            timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+        }
+        return () => clearTimeout(timer);
+    }, [timeLeft, status]);
 
     useEffect(() => {
         // If not joined conceptually but Supabase isn't configured, we immediately mock join
@@ -83,7 +92,10 @@ export default function PlayerJoin() {
 
     const fetchQuestion = async (roomId: string, index: number) => {
         const { data: q } = await supabase.from('questions').select('*').eq('room_id', roomId).eq('sort_order', index).single();
-        if (q) setQuestionData(q);
+        if (q) {
+            setQuestionData(q);
+            setTimeLeft(q.time_limit || 15);
+        }
     };
 
     const handleJoin = async () => {
@@ -223,6 +235,16 @@ export default function PlayerJoin() {
     }
 
     // PLAYING
+
+    let options: string[] = [];
+    if (questionData && questionData.options) {
+        try {
+            options = typeof questionData.options === 'string' ? JSON.parse(questionData.options) : questionData.options;
+        } catch {
+            options = [questionData.options];
+        }
+    }
+
     return (
         <div className="min-h-screen bg-slate-900 text-white flex flex-col p-4">
             {/* HUD */}
@@ -231,33 +253,66 @@ export default function PlayerJoin() {
                     <span className="text-2xl">{avatar}</span>
                     <span className="truncate max-w-[80px]">{name}</span>
                 </div>
+                <div className="text-xl font-bold font-mono text-primary animate-pulse">
+                    {timeLeft !== null ? `${timeLeft}s` : ''}
+                </div>
                 <div className="text-right">
                     <div className="text-accent text-sm font-bold font-mono">SCORE: {score}</div>
                     {combo > 1 && <div className="text-rose-400 text-xs font-bold animate-pulse">🔥 Combo x{combo}</div>}
                 </div>
             </div>
 
-            {hasAnswered ? (
+            {hasAnswered || timeLeft === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center space-y-6">
-                    <CheckCircle size={80} className="text-success animate-bounce-slow" />
-                    <h2 className="text-3xl font-bold">ส่งคำตอบแล้ว!</h2>
+                    {hasAnswered ? (
+                        <>
+                            <CheckCircle size={80} className="text-success animate-bounce-slow" />
+                            <h2 className="text-3xl font-bold">ส่งคำตอบแล้ว!</h2>
+                        </>
+                    ) : (
+                        <>
+                            <XCircle size={80} className="text-red-500 animate-bounce-slow" />
+                            <h2 className="text-3xl font-bold">หมดเวลา!</h2>
+                        </>
+                    )}
                     <p className="text-slate-400">รอหมดเวลา และดูผลที่หน้าจอหลัก</p>
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col space-y-4">
+                    {questionData && (
+                        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md mb-2 text-center text-lg font-bold">
+                            {questionData.text}
+                        </div>
+                    )}
                     <div className="text-center font-bold text-slate-400 mb-2">เลือกคำตอบ</div>
-                    {['A', 'B', 'C', 'D'].map((opt, idx) => {
+                    {options.length > 0 ? options.map((optStr, idx) => {
                         const colors = ['bg-red-500', 'bg-blue-500', 'bg-yellow-500', 'bg-green-500'];
                         return (
                             <button
-                                key={opt}
-                                onClick={() => submitAnswer(`${opt}. `)}
-                                className={`flex-1 ${colors[idx]} rounded-2xl flex items-center justify-center border-b-8 border-black/20 active:border-b-0 active:translate-y-2 transition-all`}
+                                key={idx}
+                                onClick={() => submitAnswer(optStr)}
+                                className={`flex-1 ${colors[idx % 4]} rounded-2xl flex items-center justify-start px-6 border-b-8 border-black/20 active:border-b-0 active:translate-y-2 transition-all py-4 gap-4`}
                             >
-                                <span className="text-6xl font-extrabold text-white drop-shadow-md">{opt}</span>
+                                <span className="text-3xl font-extrabold text-white drop-shadow-md">{optStr.charAt(0)}</span>
+                                <span className="text-xl font-bold text-white drop-shadow-md text-left leading-tight break-words border-l-2 border-white/20 pl-4">
+                                    {optStr.substring(2).trim()}
+                                </span>
                             </button>
                         );
-                    })}
+                    }) : (
+                        ['A', 'B', 'C', 'D'].map((opt, idx) => {
+                            const colors = ['bg-red-500', 'bg-blue-500', 'bg-yellow-500', 'bg-green-500'];
+                            return (
+                                <button
+                                    key={opt}
+                                    onClick={() => submitAnswer(`${opt}. `)}
+                                    className={`flex-1 ${colors[idx % 4]} rounded-2xl flex items-center justify-center border-b-8 border-black/20 active:border-b-0 active:translate-y-2 transition-all`}
+                                >
+                                    <span className="text-6xl font-extrabold text-white drop-shadow-md">{opt}</span>
+                                </button>
+                            );
+                        })
+                    )}
                 </div>
             )}
         </div>

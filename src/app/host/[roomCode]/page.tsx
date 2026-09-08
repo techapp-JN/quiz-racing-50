@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
-import { Users, Play, Trophy, CheckCircle, XCircle } from "lucide-react";
+import { Users, Play, CheckCircle } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import confetti from "canvas-confetti";
 
@@ -214,7 +214,7 @@ export default function HostRoom() {
                             <span className="text-2xl text-slate-400">sec</span>
                         </div>
                     ) : (
-                        <div className="text-4xl font-bold text-accent">TIME'S UP!</div>
+                        <div className="text-4xl font-bold text-accent">TIME&apos;S UP!</div>
                     )}
 
                     <div className="text-2xl font-bold text-secondary flex items-center gap-2">
